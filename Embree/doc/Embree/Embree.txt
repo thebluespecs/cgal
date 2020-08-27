@@ -1,0 +1,194 @@
+namespace CGAL {
+/*!
+
+\mainpage User Manual
+\anchor Chapter_Embree
+\cgalAutoToc
+
+\author Andreas Fabri, and Ayush Saraswat
+
+\section Embree_introduction Introduction
+
+This chapter describes how to use Embree ray tracing kernel for \cgal triangle meshes.
+Instead of duplicating the mesh to an Embree mesh representation, we use the `RTC_GEOMETRY_TYPE_USER`
+and provide callbacks for the EmbreeAPI. The two major callbacks we provide are for computing a bounding box of a primitve in the mesh and for to compute intersection attibutes between the ray and intersected primitve.
+
+Embree uses vector instructions, intrinsic functionalities and single precision floating point arithmetic, thus it provides
+ray shooting queries faster than with the `CGAL::AABB_tree`, but without exactness guaranteed.
+
+
+\section secEmbreeDefinitions Interface
+
+The main entry point to the component is the class `Embree::AABB_tree`
+which represents a static AABB tree constructed from either a Surface_mesh or Polyhedron_3. Once instantiated an AABB tree can be queried for
+intersections and distance queries.
+
+\b Intersections. The package currently supports triangle
+primitives only. The tree can be queried for intersection against line
+objects (rays or segments) in various ways. We have tried to keep the signature 
+of functions as similar as possible to AABB_tree package for convenience.
+
+Queries:
+
+- Function `Embree::AABB_tree::do_intersect()` tests if the input primitives are
+intersected by the query. This function is fast as it stops after the first encountered intersection.
+- Function `Embree::AABB_tree::number_of_intersected_primitives()` gives a count of all
+intersected primitives by the query line object.
+- Function `Embree::AABB_tree::all_intersected_primitives()` enumerates all intersected
+primitives ids. 
+- Function `Embree::AABB_tree::any_intersected_primitive()` returns the first
+encountered intersecting primitive id (if any) and stops after the first
+encountered intersection. Note that the traversal order of the tree is
+such that first herein does not refer to any particular ordering of
+the intersections with respect to the query.
+- Function `Embree::AABB_tree::first_intersected_primitive()` returns
+the intersecting primitive id (if any) of the corresponding
+intersection object that is closest to the source of the line object.
+
+
+Constructions:
+
+- Function `Embree::AABB_tree::all_intersections()` detects and constructs all
+intersection objects with the input line object.
+- Function `Embree::AABB_tree::any_intersection()` detects and constructs the first
+encountered intersection and constructs the corresponding object. This
+function is fast as it stops after the first encountered intersection.
+- Function `Embree::AABB_tree::first_intersection()` detects and constructs
+the intersection object that is closest to the source of the ray.
+
+\b Distance. Embree AABB tree also computes the closest point from a
+given point query to the input primitives through the function
+`Embree::AABB_tree::closest_point()`. In addition, it can compute the id of the
+closest primitive from a given point query through the function
+`Embree::AABB_tree::closest_point_and_primitive()`, i.e., the id of the
+primitive which realizes the minimum distance from the point
+query. Unlike like the AABB tree which uses a secondary search structure to speed up the
+distance queries, `Embree::AABB_tree` does not require anything other than the Tree object created
+for intersection queries. This is possible due to the underlying point query support from the EmbreeAPI.
+
+\section secEmbreeExamples Examples
+
+\subsection subsecEmbreeFirstExample Ray Shooting with Surface_mesh
+
+The following example shows the basics needed to set up a Embree::AABB_tree
+using the Embree::Triangle_mesh_geometry structure using a Surface_mesh. Here we call the Embree::AABB_tree::first_intersection()
+with a ray query argument. This in turn gives us the 'id' and the point on the primitive which was the
+closest from the ray origin in the ray direction.
+
+\cgalExample{Embree/ray_shooting_embree.cpp}
+
+\subsection subsecEmbreeSecondExample Ray Shooting with Polyhedron
+
+The following example shows the basics needed to set up a Embree::AABB_tree
+using the Embree::Triangle_mesh_geometry structure using a Polyhedron.
+
+\cgalExample{Embree/polyhedron_embree.cpp}
+
+\subsection subsecEmbreeThirdExample Segment Shooting with Embree.
+
+The following example shows the set up needed to query from a Segment as a query.
+
+\cgalExample{Embree/segment_shooting_embree.cpp}
+
+\subsection subsecEmbreeFourthExample Ray shooting all/any intersections.
+
+The following example shows the set up needed to query all/any type intersections using 
+a ray as query.
+
+\cgalExample{Embree/ray_all_any_embree.cpp}
+
+\subsection subsecEmbreeFifthExample Distance querying using Embree::AABB_tree.
+
+The following example shows the set up needed to make distance queries using Embree::AABB_tree.
+There is no need to make a seperate accerelating structure like in CGAL::AABB_tree.
+
+\cgalExample{Embree/closest_point.cpp}
+
+\section  subsecEmbreeBenchmarks Benchmarks
+
+Note : Below timings are in seconds 
+
+\subsection subsecEmbreeVCgal Benchmark CGAL::AABB_tree v Embree v Embree::AABB_tree.
+
+These benchmarks are a result of ray querying on a Embree::AABB_tree
+made from Embree::Triangle_mesh_geometry with a Surface_mesh.
+
+\b Gargoyle dataset<br>
+Ray_origin : (-70, -20, 50)<br>
+Bounding Box : -58.2138 -122.804 -46.1634 60.9945 6.55621 46.6318<br>
+Vertices : 818796<br>
+Faces : 1637579
+
+|  No of Rays | CGAL::AABB | EmbreeAPI | Embree::AABB |
+| ----: | ----: | ----: | ----: |
+    1,000 |   0.001145  |   0.000159979 | 0.000299 |
+   10,000 |   0.010294  |    0.00131297 | 0.002499 |
+10,00,000 |   0.995715  |       0.11521 | 0.237869 |
+
+
+
+\b Star3M rotated<br>
+Ray_origin : (0, 0, 0)<br>
+Bounding Box : -0.314453 -0.314453 -0.314453 13.4276 13.4276 13.4276<br>
+Vertices : 1691280<br>
+Faces : 3359232
+
+|  No of Rays | CGAL::AABB | EmbreeAPI | Embree::AABB |
+| ----: | ----: | ----: | ----: |
+    1,000 |   0.011701  |   0.000761032 | 0.002492 |
+   10,000 |   0.111176  |    0.00630283 | 0.019593 |
+10,00,000 |    10.9318  |      0.558096 |  1.69759 |
+
+\subsection subsecEmbreeKernelBenchmark Benchmark for Kernels in Embree::AABB_tree.
+
+These benchmark were performed to test the difference in performance for finding intersection queries
+between the CGAL kernels in Embree::AABB_tree.
+
+\b Dataset : Gargoyle<br>
+Ray origin : -70, -20, 50<br>
+Bounding Box : -58.2138 -122.804 -46.1634 60.9945 6.55621 46.6318<br>
+
+Construction time <br>
+*Epic kernel : 0.760715<br>
+*Simple_cartesian<float> : 0.743458 
+
+
+|  No of Rays | Epic | Cartesian<float> |
+| ----: | ----: | ----: |
+    1,000 |   0.00540113  |   0.00474501 |
+   10,000 |    0.0614481  |     0.050199 |
+ 1,00,000 |      5.04707  |      4.53408 |
+
+
+\subsection subsecEmbreeClosestPointBenchmark Benchmark for Distance Queries.
+
+These are the results of bencharking distance queries in Embree::AABB_tree
+compared to one in CGAL::AABB_tree.
+
+\b Dataset : Gargoyle<br>
+Query points : points on circle with 500 units radius, 
+centre is the centre of the bounding box of the mesh.
+
+\subsubsection subsecEmbreeClosestPointBenchmarkCartesian Simple_Cartesian<float>.
+
+Embree_AABB construction time : 0.714034<br>
+CGAL_AABB construction time : 31.9414
+
+|  No of Points | Embree_ | CGAL_ |
+| ----: | ----: | ----: |
+    1,000 |    1.33405  |      70.831 |
+   10,000 |    13.5835  |     89.0553 |
+
+\subsubsection subsecEmbreeClosestPointBenchmarkEpic Exact_predicates_inexact_constructions_kernel.
+
+Embree_AABB construction time : 0.732559<br>
+CGAL_AABB construction time : 30.6025
+
+|  No of Points | Embree_ | CGAL_ |
+| ----: | ----: | ----: |
+    1,000 |      1.3278  |     71.4839 |
+   10,000 |     12.8497  |      91.1329 |
+
+*/
+
+}
